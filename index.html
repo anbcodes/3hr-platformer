@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Awesome Game!</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas,
+    body,
+    html {
+      margin: 0px;
+      padding: 0px;
+      overflow: hidden;
+    }
+
+    img {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <img src="images/grass-0.png" id="grass-0">
+  <img src="images/grass-1.png" id="grass-1">
+  <img src="images/grass-2.png" id="grass-2">
+  <img src="images/grass-3.png" id="grass-3">
+  <img src="images/grass-4.png" id="grass-4">
+  <img src="images/grass-5.png" id="grass-5">
+
+  <img src="images/dirt.png" id="dirt">
+  <img src="images/stone.png" id="stone">
+  <img src="images/player.png" id="player">
+
+
+
+  <canvas id="main">
+
+  </canvas>
+
+  <script>
+    let materials = {
+      grass: [
+        document.getElementById('grass-0'),
+        document.getElementById('grass-1'),
+        document.getElementById('grass-2'),
+        document.getElementById('grass-3'),
+        document.getElementById('grass-4'),
+        document.getElementById('grass-5'),
+      ],
+      dirt: [
+        document.getElementById('dirt')
+      ],
+      stone: [
+        document.getElementById('stone')
+      ]
+    }
+    let numtomat = {
+      0: null,
+      1: materials.grass,
+      2: materials.dirt,
+      3: materials.stone,
+    }
+    console.log(materials);
+
+    let levelsUnComputed = [
+      `
+                                                    E
+
+
+                                        GGGGGGGGGGGGGGGGGGGGGE
+                                      GGDDDDDDDDDDDDDDDDDDDDD
+                                GGGGGGGGDDDDDDDDDDDDDDDDDDDDE
+                      GGGGGGG   DDDDDDDDDDDDDDD     E
+            GGGGGG    DDDDDDD   DDDDDDDDDDDDD       E
+GGGGGGGGG   DDDDDD    DDDDDDD   DDDDDDDDDDDDD       E
+`,
+      `
+                                                                                                                                                                   E
+                                                            SSSSS
+                                                            SSSSSSSS                                  S
+                                                           SSSSSSSSSS                                SSSS
+                                                            SSSSSSSSSSS                              SSSSS
+                                                            SSSSSSSSSSS                        SSS   SSSSSS
+                                    GGGGGGGGGGGGGGGGGGGG    SSSSSSSSSSSSS                            SSSSSS     SSSSSSSSSSSSSS                        SSSSSSSSSSSSSE
+                                    DDDDDDDDDDDDDDDDDDDD    SSSSSSSSSSSSSSS             SSSS         SSSSSS    SSSSSSSSSSSSSSSS                   SSS
+                                    DDDDDDDDDDDDDDDDDDSS    SSSSSSSSSSSSSSSSSSS                      SSSSSS    SSSSSSSSSSSSSSSSSS
+                          GGGGGGGGGGDDDDDDDSSSSSSSSSSSS     SSSSSSSSSSSSSSSSSSSSSSSS                 SSSSSS    SSSSSSSSSSSSSSSSSSS      SSSSS   SS
+GGGGGGGGGGGGGGGGGGGGGGG   DDDDDDDDDDDDSSSSSSSSSSSSSS        SSSSSSSSSSSSSSSSSSSSSSSSSSS              SSSSSS    SSSSSSSSSSSSSSSSSSS    SSSSS
+`
+    ]
+    let playerImage = document.getElementById('player');
+    let symbolToNum = {
+      ' ': 0,
+      'G': 1,
+      'D': 2,
+      'S': 3,
+    }
+    let levels = levelsUnComputed.map(v => v.split('\n').slice(1, -1).map(v2 => v2.split('').slice(0, -1).map(v3 => symbolToNum[v3])));
+
+    let levelIndex = 0;
+    let level = levels[levelIndex]
+
+    let pressed = {
+      d: false,
+      a: false,
+      space: false,
+    }
+
+    let loc = { x: 0, y: 0 };
+    let vel = { x: 0, y: 0 };
+
+    let canvas = document.getElementById('main');
+    let ctx = canvas.getContext("2d");
+
+    let lastTime = new Date();
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    })
+
+    window.addEventListener('keydown', (e) => {
+      pressed[e.key] = true;
+      if (e.key == ' ' && touchingGround) {
+        vel.y = -4;
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      pressed[e.key] = false;
+    });
+
+    let speed = 0.005;
+    let touchingGround = false;
+    ctx.imageSmoothingEnabled = false
+    let startTime = new Date();
+    let timePassed = 0;
+    let respawn = true;
+    function loop() {
+      ctx.fillStyle = "#0394fc";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      let currentTime = new Date();
+      let dt = +currentTime - +lastTime;
+      timePassed = +currentTime - +startTime;
+      let blocksX = 20;
+
+      let blockSize = canvas.width / blocksX;
+      let playerWidth = blockSize;
+      let playerHeight = blockSize;
+
+      if (respawn) {
+        loc.x = -blocksX / 2 + 0.5;
+        loc.y = -(canvas.height / blockSize) / 2 - 2;
+        vel.x = 0;
+        vel.y = 0;
+        respawn = false;
+      }
+
+      let offsetX = -Math.min(Math.max(0, loc.x * blockSize), level[0].length * blockSize - canvas.width);
+      let offsetY = -Math.min(Math.max(0, loc.y * blockSize), level.length * blockSize - canvas.height);
+      // Draw blocks
+      for (let y = 0; y < level.length; y++) {
+        for (let x = 0; x < level[y].length; x++) {
+          if (level[y][x] != 0 && numtomat[level[y][x]]) {
+            let a = 64 * (blockSize / 32) + 1;
+            let mat = numtomat[level[y][x]]
+            ctx.drawImage(mat[Math.round(timePassed / 1000) % mat.length], (x * blockSize + offsetX) - a + a / 2, (y * blockSize + offsetY) - a + a / 2, blockSize + a, blockSize + a);
+          }
+        }
+      }
+
+      // Move player
+      if (pressed.d) {
+        vel.x = 1;
+      } else if (pressed.a) {
+        vel.x = -1;
+      } else {
+        vel.x = 0;
+      }
+
+
+
+      loc.x += vel.x * (dt * speed);
+      loc.y += vel.y * (dt * speed);
+      let a = 0.46
+      let gx1 = Math.floor(loc.x + blocksX / 2 + a);
+      let gx2 = Math.floor(loc.x + blocksX / 2 - a);
+      let gy = Math.floor(loc.y + (canvas.height / blockSize) / 2 + 0.5);
+
+      let tx1 = Math.floor(loc.x + blocksX / 2 + a);
+      let tx2 = Math.floor(loc.x + blocksX / 2 - a);
+      let ty = Math.floor(loc.y + (canvas.height / blockSize) / 2 - 0.5);
+
+      let lx = Math.floor(loc.x + blocksX / 2 + 0.5);
+      let ly1 = Math.floor(loc.y + (canvas.height / blockSize) / 2 + a);
+      let ly2 = Math.floor(loc.y + (canvas.height / blockSize) / 2 - a);
+
+      let rx = Math.floor(loc.x + blocksX / 2 - 0.5);
+      let ry1 = Math.floor(loc.y + (canvas.height / blockSize) / 2 + a);
+      let ry2 = Math.floor(loc.y + (canvas.height / blockSize) / 2 - a);
+
+      touchingGround = (level[gy]?.[gx1] || 0) !== 0 || (level[gy]?.[gx2] || 0) !== 0;
+      let touchingCeil = (level[ty]?.[tx1] || 0) !== 0 || (level[ty]?.[tx2] || 0) !== 0;
+      let touchingLeft = (level[ly1]?.[lx] || 0) !== 0 || (level[ly2]?.[lx] || 0) !== 0;
+      let touchingRight = (level[ry1]?.[rx] || 0) !== 0 || (level[ry2]?.[rx] || 0) !== 0;
+      if (timePassed % 500 < 50 && timePassed % 500 > 0) {
+        console.log(rx, level[0].length, +level[gy]?.[gx1])
+      }
+      if (gy > level.length) {
+        respawn = true;
+      }
+
+      if (rx > level[0].length) {
+        levelIndex = (levelIndex + 1) % levels.length;
+        console.log(levelIndex);
+        level = levels[levelIndex];
+        respawn = true;
+      }
+
+      // console.log(tx, ty, gx, gy, touchingCeil);
+      if (touchingGround && vel.y > 0) {
+        loc.y -= vel.y * (dt * speed);
+        vel.y = 0;
+      }
+      if (touchingCeil && vel.y < 0) {
+        loc.y -= vel.y * (dt * speed);
+        vel.y = 0;
+      }
+
+      if (touchingLeft && vel.x > 0) {
+        loc.x -= vel.x * (dt * speed);
+        vel.x = 0;
+      }
+
+      if (touchingRight && vel.x < 0) {
+        loc.x -= vel.x * (dt * speed);
+        vel.x = 0;
+      }
+
+
+      vel.y += dt * 0.01;
+
+      ctx.fillStyle = "#00ff00";
+      // ctx.fillRect((canvas.width / 2 - playerWidth / 2) + (loc.x * blockSize - offsetX - canvas.width / 2), (canvas.height / 2 - playerHeight / 2) + (loc.y * blockSize - offsetY - canvas.height / 2), playerWidth, playerHeight);
+      let playerOffX = offsetX + loc.x * blockSize;
+      let playerOffY = offsetY + loc.y * blockSize;
+      ctx.drawImage(playerImage, canvas.width / 2 - playerWidth / 2 + playerOffX, canvas.height / 2 - playerHeight / 2 + playerOffY, playerWidth, playerHeight);
+      // ctx.fillRect((canvas.width / 2 - playerWidth / 2), (canvas.height / 2 - playerHeight / 2), playerWidth, playerHeight);
+
+      requestAnimationFrame(loop.bind(this))
+      lastTime = currentTime;
+    }
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+
+</html>
